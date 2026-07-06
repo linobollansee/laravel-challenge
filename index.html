@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Laravel Challenge</title>
+<style>
+body{
+    font-family:Arial,Helvetica,sans-serif;
+    background:#0f172a;
+    color:white;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    margin:0;
+}
+
+#game{
+    width:800px;
+    background:#1e293b;
+    border-radius:12px;
+    padding:30px;
+    box-shadow:0 0 30px rgba(0,0,0,.5);
+}
+
+h1{
+    margin-top:0;
+    color:#ff2d20;
+}
+
+button{
+    display:block;
+    width:100%;
+    margin:12px 0;
+    padding:15px;
+    font-size:16px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    background:#334155;
+    color:white;
+    transition:.2s;
+}
+
+button:hover{
+    background:#475569;
+}
+
+.correct{
+    background:#16a34a !important;
+}
+
+.wrong{
+    background:#dc2626 !important;
+}
+
+#explanation{
+    margin-top:20px;
+    background:#111827;
+    padding:15px;
+    border-radius:8px;
+    display:none;
+}
+
+#next{
+    margin-top:20px;
+    background:#ff2d20;
+}
+
+#stats{
+    margin-bottom:20px;
+    color:#cbd5e1;
+}
+
+#progress{
+    height:10px;
+    background:#111827;
+    border-radius:10px;
+    overflow:hidden;
+    margin-bottom:20px;
+}
+
+#bar{
+    height:100%;
+    width:0%;
+    background:#ff2d20;
+}
+</style>
+</head>
+<body>
+
+<div id="game">
+
+<h1>⚔ Laravel Challenge</h1>
+
+<div id="stats"></div>
+
+<div id="progress">
+<div id="bar"></div>
+</div>
+
+<h2 id="question"></h2>
+
+<div id="answers"></div>
+
+<div id="explanation"></div>
+
+<button id="next" style="display:none;">Next Question</button>
+
+</div>
+
+<script>
+
+const questions=[
+
+{
+question:"You're building an API. Which Laravel feature is specifically designed to transform models into clean JSON responses?",
+answers:[
+"Eloquent Scopes",
+"API Resources",
+"Blade Components",
+"View Composers"
+],
+correct:1,
+explanation:"API Resources separate how data is stored from how it is presented. Instead of exposing every database column, you explicitly control the JSON output. This makes versioning and maintaining APIs much easier."
+},
+
+{
+question:"A query is taking 8 seconds because related models are loaded inside a loop. What problem are you facing?",
+answers:[
+"Mass Assignment",
+"N+1 Query Problem",
+"Dependency Injection",
+"Middleware Loop"
+],
+correct:1,
+explanation:"The N+1 problem happens when Laravel performs one query for the main models and another query for every related model. Using with() eager loads relationships in a single query."
+},
+
+{
+question:"Why should business logic generally NOT live inside controllers?",
+answers:[
+"Controllers are slower",
+"They become hard to test and maintain",
+"It breaks routing",
+"Laravel refuses large controllers"
+],
+correct:1,
+explanation:"Controllers should coordinate requests. Business logic belongs in services, actions, or models so it can be reused, tested independently, and kept organized."
+},
+
+{
+question:"Which helper prevents SQL injection automatically?",
+answers:[
+"DB::raw()",
+"Eloquent Query Builder",
+"echo",
+"print_r()"
+],
+correct:1,
+explanation:"Laravel's Query Builder and Eloquent use prepared statements with parameter binding. SQL injection mainly becomes a risk when manually building SQL strings."
+},
+
+{
+question:"You need to run code after a user registers without slowing the response. What's the best approach?",
+answers:[
+"Run everything in the controller",
+"Use a queued job",
+"Sleep(5)",
+"Use Blade"
+],
+correct:1,
+explanation:"Queues let Laravel respond immediately while expensive work (emails, image processing, notifications, imports) happens in the background."
+},
+
+{
+question:"What is the main benefit of Dependency Injection?",
+answers:[
+"Smaller databases",
+"Automatic object creation and easier testing",
+"Faster HTML",
+"It compresses PHP"
+],
+correct:1,
+explanation:"Laravel's service container automatically resolves dependencies. This keeps classes loosely coupled and makes mocking services during testing much easier."
+},
+
+{
+question:"Which command creates both a migration and model together?",
+answers:[
+"php artisan make:model Post",
+"php artisan make:model Post -m",
+"php artisan migrate:create",
+"php artisan create:model"
+],
+correct:1,
+explanation:"The -m flag tells Artisan to generate a migration alongside the model."
+},
+
+{
+question:"Why are Form Requests better than validating directly in controllers?",
+answers:[
+"They use less RAM",
+"They separate validation into reusable classes",
+"They compile PHP",
+"They automatically cache results"
+],
+correct:1,
+explanation:"Form Requests keep validation rules and authorization together, making controllers cleaner and validation reusable."
+},
+
+{
+question:"You're sending 10,000 emails. Which Laravel feature is most appropriate?",
+answers:[
+"Routes",
+"Queues",
+"Blade",
+"Factories"
+],
+correct:1,
+explanation:"Queues process long-running work asynchronously so users don't wait for requests to finish."
+},
+
+{
+question:"Which Laravel feature makes testing database changes safe?",
+answers:[
+"Blade",
+"Database Transactions",
+"Facades",
+"Policies"
+],
+correct:1,
+explanation:"Transactions guarantee that either all operations succeed or none do. Tests commonly use transactions so changes roll back automatically."
+},
+
+{
+question:"A package needs to register routes, views and config automatically. What should it use?",
+answers:[
+"Middleware",
+"Service Provider",
+"Seeder",
+"Factory"
+],
+correct:1,
+explanation:"Service Providers are Laravel's bootstrapping mechanism. Packages register bindings, routes, views, events and configuration there."
+},
+
+{
+question:"What is the biggest advantage of Laravel's event system?",
+answers:[
+"It makes SQL faster",
+"It reduces coupling by letting parts of your app react independently",
+"It encrypts passwords",
+"It replaces routing"
+],
+correct:1,
+explanation:"Events let one action trigger multiple listeners without those classes knowing about each other, making applications easier to extend."
+}
+
+];
+
+let pool=[...questions].sort(()=>Math.random()-0.5);
+
+let score=0;
+let lives=3;
+let current=0;
+
+const question=document.getElementById("question");
+const answers=document.getElementById("answers");
+const explanation=document.getElementById("explanation");
+const stats=document.getElementById("stats");
+const next=document.getElementById("next");
+const bar=document.getElementById("bar");
+
+function updateStats(){
+stats.innerHTML=`⭐ Score: ${score} &nbsp;&nbsp; ❤️ Lives: ${lives} &nbsp;&nbsp; 📚 Question ${current+1}/${pool.length}`;
+bar.style.width=((current)/pool.length*100)+"%";
+}
+
+function showQuestion(){
+
+if(lives<=0){
+gameOver();
+return;
+}
+
+if(current>=pool.length){
+win();
+return;
+}
+
+updateStats();
+
+const q=pool[current];
+
+question.innerHTML=q.question;
+answers.innerHTML="";
+explanation.style.display="none";
+next.style.display="none";
+
+q.answers.forEach((a,index)=>{
+
+const btn=document.createElement("button");
+btn.innerHTML=a;
+
+btn.onclick=()=>{
+
+document.querySelectorAll("#answers button").forEach(b=>b.disabled=true);
+
+if(index===q.correct){
+
+btn.classList.add("correct");
+score++;
+
+explanation.innerHTML="<h3>✅ Correct!</h3>"+q.explanation;
+
+}else{
+
+btn.classList.add("wrong");
+lives--;
+
+document.querySelectorAll("#answers button")[q.correct].classList.add("correct");
+
+explanation.innerHTML="<h3>❌ Incorrect</h3><p><strong>Correct answer:</strong> "+q.answers[q.correct]+"</p><p>"+q.explanation+"</p>";
+
+}
+
+updateStats();
+
+explanation.style.display="block";
+next.style.display="block";
+
+};
+
+answers.appendChild(btn);
+
+});
+
+}
+
+next.onclick=()=>{
+current++;
+showQuestion();
+};
+
+function gameOver(){
+
+document.getElementById("game").innerHTML=`
+<h1>💀 Game Over</h1>
+<h2>Score: ${score}/${pool.length}</h2>
+<p>Laravel mastery comes from understanding *why* features exist, not just memorizing commands.</p>
+<button onclick="location.reload()">Play Again</button>
+`;
+
+}
+
+function win(){
+
+document.getElementById("game").innerHTML=`
+<h1>🏆 Congratulations!</h1>
+<h2>You completed the Laravel Challenge!</h2>
+<h2>Final Score: ${score}/${pool.length}</h2>
+
+<p>You understand many of the concepts that distinguish experienced Laravel developers from beginners.</p>
+
+<button onclick="location.reload()">Play Again</button>
+`;
+
+}
+
+showQuestion();
+
+</script>
+
+</body>
+</html>
